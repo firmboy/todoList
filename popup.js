@@ -99,6 +99,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const today = new Date().toISOString().split('T')[0];
       
+      // 检查是否有历史待办事项
+      const historyDates = Object.keys(groupedTodos)
+        .filter(date => date !== today)
+        .sort((a, b) => new Date(b) - new Date(a));
+      
+      const hasHistoryTodos = historyDates.length > 0;
+      console.log('History dates:', historyDates);
+
       // 先渲染今天的待办事项
       if (groupedTodos[today]) {
           const todayGroup = document.createElement('div');
@@ -115,8 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
           `;
 
           const todayList = document.createElement('ul');
-          todayList.className = 'date-list collapsed';
-          todayHeader.querySelector('.collapse-icon').style.transform = 'rotate(-90deg)';
+          todayList.className = 'date-list';
+          todayHeader.querySelector('.collapse-icon').style.transform = '';
 
           groupedTodos[today]
             .sort((a, b) => b.timestamp - a.timestamp)
@@ -136,13 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
           });
       }
 
-      // 创建历史待办分组
-      const historyDates = Object.keys(groupedTodos)
-          .filter(date => date !== today)
-          .sort((a, b) => new Date(b) - new Date(a));
-
       // 总是创建历史待办分组，即使没有历史待办事项
-      {
+      if (hasHistoryTodos) {
           const historyGroup = document.createElement('div');
           historyGroup.className = 'date-group history-group';
           
@@ -211,145 +214,105 @@ document.addEventListener('DOMContentLoaded', () => {
             icon.style.transform = historyContent.classList.contains('collapsed') ? 'rotate(-90deg)' : '';
           });
       }
+      console.log('Render completed');
     } catch (error) {
       console.error('Error in renderTodosByDate:', error);
     }
   }
 
   function createTodoElement(todo) {
-    console.log('Creating element for todo:', todo);
     const li = document.createElement('li');
-    const today = new Date().toISOString().split('T')[0];
-    const showMoveButton = todo.date !== today;
-
-    // 创建主要内容
+    
+    // 创建主要内容区域
     const mainContent = document.createElement('div');
     mainContent.className = 'todo-main-content';
-    mainContent.innerHTML = `
-      <div class="todo-header">
-        <span class="todo-text">${todo.text}</span>
-        <div class="todo-buttons">
-          <button class="reminder-btn" title="设置提醒">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
-            </svg>
-          </button>
-          ${showMoveButton ? '<button class="move-btn">移至今天</button>' : ''}
-          <button class="delete-btn" title="删除">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-            </svg>
-          </button>
-        </div>
-      </div>
+    
+    // 创建待办事项头部
+    const todoHeader = document.createElement('div');
+    todoHeader.className = 'todo-header';
+    
+    const todoContent = document.createElement('div');
+    todoContent.className = 'todo-content';
+    
+    const todoText = document.createElement('span');
+    todoText.className = 'todo-text';
+    todoText.textContent = todo.text;
+    
+    const todoButtons = document.createElement('div');
+    todoButtons.className = 'todo-buttons';
+    
+    // 添加提醒按钮
+    const reminderBtn = document.createElement('button');
+    reminderBtn.className = 'reminder-btn';
+    reminderBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+      </svg>
     `;
-
-    // 创建展开内容
-    const expandedContent = document.createElement('div');
-    expandedContent.className = 'todo-expanded-content';
+    
+    // 添加删除按钮
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>
+      </svg>
+    `;
+    
+    todoButtons.appendChild(reminderBtn);
+    todoButtons.appendChild(deleteBtn);
+    
+    todoContent.appendChild(todoText);
+    todoHeader.appendChild(todoContent);
+    todoHeader.appendChild(todoButtons);
+    mainContent.appendChild(todoHeader);
+    
+    // 如果有提醒时间，显示提醒信息
     if (todo.reminder) {
-      expandedContent.innerHTML = `
-        <div class="reminder-info">
-          提醒时间: ${formatTime(todo.reminder)}
-        </div>
-      `;
-    }
-
-    li.appendChild(mainContent);
-    li.appendChild(expandedContent);
-
-    // 设置初始展开状态
-    expandedContent.style.height = '0';
-    expandedContent.style.opacity = '0';
-
-    // 事件处理
-    const todoText = mainContent.querySelector('.todo-text');
-    const buttonsDiv = mainContent.querySelector('.todo-buttons');
-    const reminderBtn = buttonsDiv.querySelector('.reminder-btn');
-    const deleteBtn = buttonsDiv.querySelector('.delete-btn');
-    const moveBtn = buttonsDiv.querySelector('.move-btn');
-
-    // 阻止按钮点击事件冒泡
-    buttonsDiv.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-
-    // 点击待办事项文本展开/收起
-    todoText.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isExpanded = expandedContent.style.height !== '0px';
+      const reminderInfo = document.createElement('div');
+      reminderInfo.className = 'reminder-info';
+      const time = new Date();
+      const [hours, minutes] = todo.reminder.split(':');
+      time.setHours(parseInt(hours));
+      time.setMinutes(parseInt(minutes));
       
-      if (isExpanded) {
-        expandedContent.style.height = '0';
-        expandedContent.style.opacity = '0';
-      } else {
-        expandedContent.style.height = expandedContent.scrollHeight + 'px';
-        expandedContent.style.opacity = '1';
-      }
-    });
-
-    // 删除按钮
-    deleteBtn.addEventListener('click', () => {
-      chrome.storage.local.get(['todos'], (result) => {
-        const todos = result.todos || [];
-        const updatedTodos = todos.filter(t => t.id !== todo.id);
-        chrome.storage.local.set({ todos: updatedTodos }, () => {
-          loadTodos(); // 重新加载所有待办事项
-        });
+      const formattedTime = time.toLocaleTimeString('zh-CN', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
       });
-    });
-
-    // 提醒按钮
-    reminderBtn.addEventListener('click', () => {
-      const messageId = Date.now().toString();
-      const buttonRect = reminderBtn.getBoundingClientRect();
       
+      reminderInfo.innerHTML = `
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+        </svg>
+        <span>${formattedTime}</span>
+      `;
+      mainContent.appendChild(reminderInfo);
+    }
+    
+    li.appendChild(mainContent);
+    
+    // 添加事件监听器
+    reminderBtn.addEventListener('click', () => {
       chrome.windows.create({
-        url: `time-picker.html?messageId=${messageId}`,
+        url: `time-picker.html?todoId=${todo.id}`,
         type: 'popup',
-        width: 232,
-        height: 220,
-        left: Math.round((window.screenLeft || window.screenX) + buttonRect.left),
-        top: Math.round((window.screenTop || window.screenY) + buttonRect.bottom + 5),
+        width: 300,
+        height: 400,
         focused: true
       });
-
-      function handleTimeSelection(request, sender, sendResponse) {
-        if (request.action === 'setReminder' && request.messageId === messageId) {
-          chrome.runtime.onMessage.removeListener(handleTimeSelection);
-          
-          chrome.storage.local.get(['todos'], (result) => {
-            const todos = result.todos || [];
-            const updatedTodos = todos.map(t => 
-              t.id === todo.id ? { ...t, reminder: request.time } : t
-            );
-            chrome.storage.local.set({ todos: updatedTodos }, () => {
-              renderTodosByDate(updatedTodos);
-              sendResponse({ success: true });
-            });
-          });
-          return true;
-        }
-      }
-      
-      chrome.runtime.onMessage.addListener(handleTimeSelection);
     });
-
-    // 移动按钮
-    if (showMoveButton) {
-      moveBtn.addEventListener('click', () => {
-        chrome.storage.local.get(['todos'], (result) => {
-          const todos = result.todos || [];
-          const updatedTodos = todos.map(t => 
-            t.id === todo.id ? { ...t, date: today, timestamp: Date.now() } : t
-          );
-          chrome.storage.local.set({ todos: updatedTodos }, () => {
-            renderTodosByDate(updatedTodos);
-          });
+    
+    deleteBtn.addEventListener('click', () => {
+      chrome.storage.local.get(['todos'], (result) => {
+        const todos = result.todos.filter(t => t.id !== todo.id);
+        chrome.storage.local.set({ todos }, () => {
+          loadTodos();
         });
       });
-    }
-
+    });
+    
     return li;
   }
 
@@ -419,9 +382,18 @@ document.addEventListener('DOMContentLoaded', () => {
     </svg>
   `;
   
+  const dataViewerButton = document.createElement('button');
+  dataViewerButton.className = 'data-viewer-btn';
+  dataViewerButton.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM5 7h14v2H5V7zm0 4h14v2H5v-2zm0 4h14v2H5v-2z"/>
+    </svg>
+  `;
+
   const headerContainer = document.querySelector('.container h1');
   headerContainer.appendChild(syncButton);
   headerContainer.appendChild(settingsButton);
+  headerContainer.appendChild(dataViewerButton);
   headerContainer.appendChild(syncStatus);
 
   // 添加同步功能
@@ -431,6 +403,17 @@ document.addEventListener('DOMContentLoaded', () => {
       syncButton.style.opacity = '0.5';
       syncStatus.textContent = '同步中...';
       syncStatus.className = 'sync-status syncing';
+      
+      // 检查是否已配置 GitHub
+      const { githubClientId, githubClientSecret } = await chrome.storage.local.get([
+        'githubClientId',
+        'githubClientSecret'
+      ]);
+
+      if (!githubClientId || !githubClientSecret) {
+        throw new Error('请先在设置中配置 GitHub 认证信息');
+      }
+
       const updatedTodos = await todoSync.sync();
       renderTodosByDate(updatedTodos);
       syncStatus.textContent = '同步成功';
@@ -439,12 +422,25 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Sync failed:', error);
       syncStatus.textContent = error.message || '同步失败';
       syncStatus.className = 'sync-status error';
+      
+      // 如果是认证相关错误，自动打开设置页面
+      if (error.message.includes('认证') || error.message.includes('配置')) {
+        chrome.windows.create({
+          url: 'settings.html',
+          type: 'popup',
+          width: 440,
+          height: 400,
+          focused: true
+        });
+      }
     } finally {
       syncButton.disabled = false;
       syncButton.style.opacity = '1';
       setTimeout(() => {
-        syncStatus.textContent = '';
-        syncStatus.className = 'sync-status';
+        if (syncStatus.className !== 'sync-status error') {
+          syncStatus.textContent = '';
+          syncStatus.className = 'sync-status';
+        }
       }, 3000);
     }
   });
@@ -483,5 +479,30 @@ document.addEventListener('DOMContentLoaded', () => {
       height: 400,
       focused: true
     });
+  });
+
+  // 添加数据查看按钮点击事件
+  dataViewerButton.addEventListener('click', () => {
+    chrome.windows.create({
+      url: 'data-viewer.html',
+      type: 'popup',
+      width: 800,
+      height: 600,
+      focused: true
+    });
+  });
+
+  // 添加存储变化监听
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.todos) {
+      renderTodosByDate(changes.todos.newValue);
+    }
+  });
+
+  // 添加消息监听
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'todosUpdated') {
+      renderTodosByDate(message.todos);
+    }
   });
 }); 

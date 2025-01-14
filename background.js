@@ -179,12 +179,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.action === 'setReminder') {
-    console.log('Setting reminder...');
-    checkReminders().then(() => {
-      console.log('Reminder check completed');
-      sendResponse({ success: true });
-    });
-    return true;
+    console.log('Setting reminder:', message);
+    handleSetReminder(message.todoId, message.time)
+      .then(async () => {
+        // 获取更新后的待办事项
+        const { todos } = await chrome.storage.local.get(['todos']);
+        // 通知 popup 更新界面
+        chrome.runtime.sendMessage({
+          type: 'todosUpdated',
+          todos: todos
+        });
+        sendResponse({ success: true });
+      })
+      .catch(error => {
+        console.error('Set reminder failed:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // 保持消息通道开启
   }
   
   if (message.action === 'openTodoPanel' && sender.tab) {
@@ -198,6 +209,146 @@ chrome.notifications.onClicked.addListener((notificationId) => {
   chrome.windows.getCurrent((window) => {
     chrome.sidePanel.open({ windowId: window.id });
   });
+});
+
+// 监听消息
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'setReminder') {
+    handleSetReminder(message.todoId, message.time)
+      .then(() => sendResponse({ success: true }))
+      .catch(error => {
+        console.error('Set reminder failed:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // 保持消息通道开启
+  }
+});
+
+// 处理设置提醒
+async function handleSetReminder(todoId, time) {
+  try {
+    // 获取当前待办事项
+    const { todos } = await chrome.storage.local.get(['todos']);
+    if (!Array.isArray(todos)) return;
+
+    // 更新待办事项的提醒时间
+    const updatedTodos = todos.map(todo => {
+      if (todo.id === todoId) {
+        return {
+          ...todo,
+          reminder: time,
+          reminded: false,
+          timestamp: Date.now()
+        };
+      }
+      return todo;
+    });
+
+    // 保存更新后的待办事项
+    await chrome.storage.local.set({ todos: updatedTodos });
+
+    // 设置提醒
+    const [hours, minutes] = time.split(':');
+    const reminderDate = new Date();
+    reminderDate.setHours(parseInt(hours));
+    reminderDate.setMinutes(parseInt(minutes));
+    reminderDate.setSeconds(0);
+
+    // 如果时间已过，设置为明天
+    if (reminderDate < new Date()) {
+      reminderDate.setDate(reminderDate.getDate() + 1);
+    }
+
+    // 创建提醒
+    await chrome.alarms.create(`todo-${todoId}`, {
+      when: reminderDate.getTime()
+    });
+
+    console.log('Reminder set:', { todoId, time, when: reminderDate });
+    
+    // 触发同步以保持数据一致性
+    try {
+      await todoSync.sync();
+    } catch (error) {
+      console.warn('Auto sync failed after setting reminder:', error);
+    }
+    
+    return updatedTodos;
+  } catch (error) {
+    console.error('Failed to set reminder:', error);
+    throw error;
+  }
+}
+
+// 监听提醒触发
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (!alarm.name.startsWith('todo-')) return;
+
+  const todoId = alarm.name.replace('todo-', '');
+  const { todos } = await chrome.storage.local.get(['todos']);
+  
+  const todo = todos.find(t => t.id === todoId);
+  if (!todo || todo.reminded) return;
+
+  // 显示通知
+  chrome.notifications.create(`todo-notification-${todoId}`, {
+    type: 'basic',
+    iconUrl: 'icon.png',
+    title: '待办事项提醒',
+    message: todo.text,
+    priority: 2,
+    buttons: [
+      { title: '完成' },
+      { title: '稍后提醒' }
+    ]
+  });
+
+  // 标记为已提醒
+  const updatedTodos = todos.map(t => {
+    if (t.id === todoId) {
+      return { ...t, reminded: true };
+    }
+    return t;
+  });
+
+  await chrome.storage.local.set({ todos: updatedTodos });
+});
+
+// 监听通知按钮点击
+chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIndex) => {
+  if (!notificationId.startsWith('todo-notification-')) return;
+
+  const todoId = notificationId.replace('todo-notification-', '');
+  const { todos } = await chrome.storage.local.get(['todos']);
+
+  if (buttonIndex === 0) {
+    // 完成待办事项
+    const updatedTodos = todos.map(todo => {
+      if (todo.id === todoId) {
+        return { ...todo, completed: true };
+      }
+      return todo;
+    });
+    await chrome.storage.local.set({ todos: updatedTodos });
+  } else if (buttonIndex === 1) {
+    // 稍后提醒（15分钟后）
+    const later = new Date();
+    later.setMinutes(later.getMinutes() + 15);
+    
+    await chrome.alarms.create(`todo-${todoId}`, {
+      when: later.getTime()
+    });
+
+    const updatedTodos = todos.map(todo => {
+      if (todo.id === todoId) {
+        return { ...todo, reminded: false };
+      }
+      return todo;
+    });
+    await chrome.storage.local.set({ todos: updatedTodos });
+  }
+
+  chrome.notifications.clear(notificationId);
 });
 
 // 立即初始化

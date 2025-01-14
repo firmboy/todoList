@@ -50,24 +50,29 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       showStatus('正在测试连接...', 'info');
       
-      // 尝试获取访问令牌
+      showStatus('正在获取授权...', 'info');
       const token = await getGitHubToken(clientId, clientSecret);
       
-      // 测试API访问
+      showStatus('正在验证访问令牌...', 'info');
       const response = await fetch('https://api.github.com/user', {
         headers: {
-          'Authorization': `token ${token}`,
+          'Authorization': `Bearer ${token}`,
           'Accept': 'application/vnd.github.v3+json'
         }
       });
 
       if (!response.ok) {
-        throw new Error('API 访问失败');
+        const errorData = await response.json();
+        throw new Error(`API 访问失败: ${errorData.message}`);
       }
 
       const user = await response.json();
       showStatus(`连接成功！已验证用户: ${user.login}`, 'success');
+      
+      // 保存访问令牌
+      await chrome.storage.local.set({ githubAccessToken: token });
     } catch (error) {
+      console.error('测试连接失败:', error);
       showStatus('连接测试失败: ' + error.message, 'error');
     }
   });
@@ -84,21 +89,54 @@ document.addEventListener('DOMContentLoaded', () => {
       // 构建认证 URL
       const authUrl = `https://github.com/login/oauth/authorize?` +
         `client_id=${clientId}` +
-        `&scope=gist read:user` +
-        `&redirect_uri=${encodeURIComponent(`https://${chrome.runtime.id}.chromiumapp.org/`)}`;
+        `&redirect_uri=${encodeURIComponent(`https://${chrome.runtime.id}.chromiumapp.org/oauth2`)}` +
+        `&scope=${encodeURIComponent('gist read:user')}` +
+        `&state=${Math.random().toString(36).substring(7)}` +
+        `&allow_signup=true`;
 
-      const token = await chrome.identity.launchWebAuthFlow({
+      console.log('Auth URL:', authUrl);
+
+      // 获取授权码
+      const redirectUrl = await chrome.identity.launchWebAuthFlow({
         url: authUrl,
         interactive: true
       });
 
-      // 从重定向 URL 中提取访问令牌
-      const match = token.match(/[#?]access_token=([^&]*)/);
-      if (!match) {
+      console.log('Redirect URL:', redirectUrl);
+
+      // 从重定向 URL 中提取授权码
+      const code = new URL(redirectUrl).searchParams.get('code');
+      if (!code) {
+        throw new Error('未获取到授权码');
+      }
+
+      // 使用授权码获取访问令牌
+      const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code: code,
+          redirect_uri: `https://${chrome.runtime.id}.chromiumapp.org/oauth2`
+        })
+      });
+
+      const tokenData = await tokenResponse.json();
+      console.log('Token response:', tokenData);
+
+      if (tokenData.error) {
+        throw new Error(`GitHub API 错误: ${tokenData.error_description}`);
+      }
+
+      if (!tokenData.access_token) {
         throw new Error('未能获取访问令牌');
       }
 
-      return match[1];
+      return tokenData.access_token;
     } catch (error) {
       console.error('认证错误:', error);
       throw new Error('获取访问令牌失败: ' + error.message);

@@ -9,13 +9,13 @@
   },
   "permissions": ["storage", "commands", "windows", "sidePanel", "notifications", "alarms", "tabs", "background", "offscreen", "identity"],
   "oauth2": {
-    "client_id": "实际的Client ID",
-    "scopes": ["gist", "read:user"],
-    "redirect_url": "https://{extension-id}.chromiumapp.org/"
+    "client_id": "你的Client ID",
+    "scopes": ["gist", "read:user"]
   },
   "host_permissions": [
     "<all_urls>",
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "https://github.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -42,7 +42,7 @@
     }
   },
   "web_accessible_resources": [{
-    "resources": ["time-picker.html", "settings.html"],
+    "resources": ["time-picker.html", "settings.html", "data-viewer.html"],
     "matches": ["<all_urls>"]
   }]
 } 

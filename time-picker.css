@@ -1,0 +1,151 @@
+body {
+  width: 280px;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #fff;
+  padding: 16px;
+}
+
+.time-picker-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.time-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #212529;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.close-btn:hover {
+  background: rgba(250, 82, 82, 0.1);
+}
+
+.close-btn svg {
+  stroke: #fa5252;
+}
+
+.time-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.quick-times {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.time-btn {
+  padding: 10px;
+  border: 1px solid #e9ecef;
+  background: #f8f9fa;
+  border-radius: 6px;
+  color: #495057;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.time-btn:hover {
+  background: #f1f3f5;
+  border-color: #dee2e6;
+}
+
+.time-btn.selected {
+  background: #e7f5ff;
+  border-color: #4dabf7;
+  color: #4dabf7;
+}
+
+.time-divider {
+  position: relative;
+  text-align: center;
+  margin: 8px 0;
+}
+
+.time-divider::before,
+.time-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 70px);
+  height: 1px;
+  background: #dee2e6;
+}
+
+.time-divider::before {
+  left: 0;
+}
+
+.time-divider::after {
+  right: 0;
+}
+
+.time-divider span {
+  background: #fff;
+  padding: 0 12px;
+  color: #868e96;
+  font-size: 12px;
+}
+
+.custom-time {
+  display: flex;
+  gap: 8px;
+}
+
+input[type="time"] {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #495057;
+}
+
+input[type="time"]:focus {
+  outline: none;
+  border-color: #4dabf7;
+  box-shadow: 0 0 0 3px rgba(77, 171, 247, 0.1);
+}
+
+.confirm-btn {
+  padding: 8px 16px;
+  background: #4dabf7;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirm-btn:hover {
+  background: #3b8ce2;
+}
+
+/* 美化时间选择器的下拉箭头 */
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(60%) sepia(10%) saturate(100%) hue-rotate(177deg) brightness(90%) contrast(90%);
+  cursor: pointer;
+} 

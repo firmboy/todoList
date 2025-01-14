@@ -62,11 +62,84 @@ class TodoSync {
   // 获取 GitHub 访问令牌
   async getAccessToken() {
     try {
-      const authResult = await chrome.identity.getAuthToken({ interactive: true });
-      return authResult.token;
+      // 先尝试从存储中获取已保存的令牌
+      const { githubAccessToken } = await chrome.storage.local.get(['githubAccessToken']);
+      if (githubAccessToken) {
+        // 验证令牌是否有效
+        const response = await fetch('https://api.github.com/user', {
+          headers: {
+            'Authorization': `Bearer ${githubAccessToken}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+        
+        if (response.ok) {
+          return githubAccessToken;
+        }
+      }
+
+      // 如果没有令牌或令牌无效，则重新获取
+      const { githubClientId, githubClientSecret } = await chrome.storage.local.get([
+        'githubClientId',
+        'githubClientSecret'
+      ]);
+
+      if (!githubClientId || !githubClientSecret) {
+        throw new Error('请先在设置中配置 GitHub 认证信息');
+      }
+
+      // 构建认证 URL
+      const authUrl = `https://github.com/login/oauth/authorize?` +
+        `client_id=${githubClientId}` +
+        `&redirect_uri=${encodeURIComponent(`https://${chrome.runtime.id}.chromiumapp.org/oauth2`)}` +
+        `&scope=${encodeURIComponent('gist read:user')}` +
+        `&state=${Math.random().toString(36).substring(7)}` +
+        `&allow_signup=true`;
+
+      // 获取授权码
+      const redirectUrl = await chrome.identity.launchWebAuthFlow({
+        url: authUrl,
+        interactive: true
+      });
+
+      // 从重定向 URL 中提取授权码
+      const code = new URL(redirectUrl).searchParams.get('code');
+      if (!code) {
+        throw new Error('未获取到授权码');
+      }
+
+      // 使用授权码获取访问令牌
+      const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          client_id: githubClientId,
+          client_secret: githubClientSecret,
+          code: code,
+          redirect_uri: `https://${chrome.runtime.id}.chromiumapp.org/oauth2`
+        })
+      });
+
+      const tokenData = await tokenResponse.json();
+      
+      if (tokenData.error) {
+        throw new Error(`GitHub API 错误: ${tokenData.error_description}`);
+      }
+
+      if (!tokenData.access_token) {
+        throw new Error('未能获取访问令牌');
+      }
+
+      // 保存新的访问令牌
+      await chrome.storage.local.set({ githubAccessToken: tokenData.access_token });
+
+      return tokenData.access_token;
     } catch (error) {
-      console.error('Failed to get auth token:', error);
-      throw new Error('认证失败，请检查网络连接并重试');
+      console.error('获取访问令牌失败:', error);
+      throw new Error('认证失败: ' + error.message);
     }
   }
 
@@ -287,7 +360,7 @@ class ConflictResolver {
       return this.mergeTodos(localTodos, remoteTodos);
     }
 
-    // 自动解决冲突的策略
+    // 自动解决冲突
     return this.autoResolveConflicts(conflicts, localTodos, remoteTodos);
   }
 
@@ -316,17 +389,38 @@ class ConflictResolver {
     return (
       localTodo.text !== remoteTodo.text ||
       localTodo.reminder !== remoteTodo.reminder ||
-      localTodo.date !== remoteTodo.date
+      localTodo.date !== remoteTodo.date ||
+      localTodo.completed !== remoteTodo.completed
     );
   }
 
+  mergeTodos(localTodos, remoteTodos) {
+    const mergedMap = new Map();
+    
+    // 添加所有本地待办事项
+    localTodos.forEach(todo => {
+      mergedMap.set(todo.id, todo);
+    });
+
+    // 添加或更新远程待办事项
+    remoteTodos.forEach(todo => {
+      if (!mergedMap.has(todo.id)) {
+        // 如果本地没有，直接添加
+        mergedMap.set(todo.id, todo);
+      }
+    });
+
+    return Array.from(mergedMap.values())
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }
+
   autoResolveConflicts(conflicts, localTodos, remoteTodos) {
-    const resolvedTodos = new Map();
+    const resolvedMap = new Map();
 
     // 首先添加所有非冲突的待办事项
     [...localTodos, ...remoteTodos].forEach(todo => {
       if (!conflicts.find(c => c.id === todo.id)) {
-        resolvedTodos.set(todo.id, todo);
+        resolvedMap.set(todo.id, todo);
       }
     });
 
@@ -337,10 +431,10 @@ class ConflictResolver {
         ? conflict.local
         : conflict.remote;
       
-      resolvedTodos.set(conflict.id, resolved);
+      resolvedMap.set(conflict.id, resolved);
     });
 
-    return Array.from(resolvedTodos.values())
+    return Array.from(resolvedMap.values())
       .sort((a, b) => b.timestamp - a.timestamp);
   }
 }

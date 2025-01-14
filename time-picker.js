@@ -1,59 +1,40 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const hoursSelect = document.getElementById('hours');
-  const minutesSelect = document.getElementById('minutes');
+  const closeBtn = document.querySelector('.close-btn');
+  const timeButtons = document.querySelectorAll('.time-btn');
+  const customTimeInput = document.getElementById('customTime');
   const confirmBtn = document.querySelector('.confirm-btn');
-  const cancelBtn = document.querySelector('.cancel-btn');
-  const quickTimeButtons = document.querySelectorAll('.quick-time-btn');
 
-  // 获取URL中的messageId
-  const urlParams = new URLSearchParams(window.location.search);
-  const messageId = urlParams.get('messageId');
-
-  // 填充小时选项
-  for (let i = 0; i < 24; i++) {
-    const option = document.createElement('option');
-    option.value = i;
-    option.textContent = i.toString().padStart(2, '0');
-    hoursSelect.appendChild(option);
-  }
-
-  // 填充分钟选项
-  for (let i = 0; i < 60; i++) {
-    const option = document.createElement('option');
-    option.value = i;
-    option.textContent = i.toString().padStart(2, '0');
-    minutesSelect.appendChild(option);
-  }
-
-  // 设置默认时间为当前时间的下一分钟
+  // 设置默认时间为当前时间的下一个整点
   const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-  
-  if (currentMinute === 59) {
-    hoursSelect.value = (currentHour + 1) % 24;
-    minutesSelect.value = 0;
-  } else {
-    hoursSelect.value = currentHour;
-    minutesSelect.value = currentMinute + 1;
-  }
+  now.setHours(now.getHours() + 1);
+  now.setMinutes(0);
+  customTimeInput.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  // 快速选择时间
-  quickTimeButtons.forEach(btn => {
+  // 快速选择时间按钮
+  timeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      const [hours, minutes] = btn.dataset.time.split(':');
-      hoursSelect.value = parseInt(hours);
-      minutesSelect.value = parseInt(minutes);
+      // 移除其他按钮的选中状态
+      timeButtons.forEach(b => b.classList.remove('selected'));
+      // 添加当前按钮的选中状态
+      btn.classList.add('selected');
+      // 设置自定义时间输入框的值
+      customTimeInput.value = btn.dataset.time;
     });
   });
 
   // 确认按钮
   confirmBtn.addEventListener('click', () => {
-    const time = `${hoursSelect.value.toString().padStart(2, '0')}:${minutesSelect.value.toString().padStart(2, '0')}`;
+    const selectedTime = customTimeInput.value;
+    if (!selectedTime) return;
+
+    // 获取URL中的todoId
+    const urlParams = new URLSearchParams(window.location.search);
+    const todoId = urlParams.get('todoId');
+    
     chrome.runtime.sendMessage({
       action: 'setReminder',
-      time: time,
-      messageId: messageId
+      todoId: todoId,
+      time: selectedTime
     }, response => {
       if (response && response.success) {
         window.close();
@@ -61,8 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 取消按钮
-  cancelBtn.addEventListener('click', () => {
+  // 关闭按钮
+  closeBtn.addEventListener('click', () => {
     window.close();
   });
 }); 
