@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 200px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .time-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .time-selector {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    select {
+      padding: 6px;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      font-size: 13px;
+      width: 60px;
+      appearance: none;
+      background-color: white;
+      background-image: url('data:image/svg+xml;utf8,<svg fill="%23495057" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #4dabf7;
+      box-shadow: 0 0 0 3px rgba(77, 171, 247, 0.1);
+    }
+
+    .colon {
+      font-size: 16px;
+      font-weight: 500;
+      color: #495057;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 6px;
+    }
+
+    button {
+      flex: 1;
+      padding: 6px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .confirm-btn {
+      background-color: #4dabf7;
+      color: white;
+    }
+
+    .confirm-btn:hover {
+      background-color: #3b8ce2;
+    }
+
+    .cancel-btn {
+      background-color: #f1f3f5;
+      color: #495057;
+    }
+
+    .cancel-btn:hover {
+      background-color: #e9ecef;
+    }
+
+    .quick-times {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .quick-time-btn {
+      background-color: #f8f9fa;
+      color: #495057;
+      padding: 8px;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .quick-time-btn:hover {
+      background-color: #f1f3f5;
+      border-color: #dee2e6;
+    }
+  </style>
+</head>
+<body>
+  <div class="time-picker">
+    <div class="time-selector">
+      <select id="hours"></select>
+      <span class="colon">:</span>
+      <select id="minutes"></select>
+    </div>
+    <div class="quick-times">
+      <button class="quick-time-btn" data-time="09:00">上午 9:00</button>
+      <button class="quick-time-btn" data-time="11:00">上午 11:00</button>
+      <button class="quick-time-btn" data-time="14:00">下午 2:00</button>
+      <button class="quick-time-btn" data-time="17:00">下午 5:00</button>
+    </div>
+    <div class="buttons">
+      <button class="cancel-btn">取消</button>
+      <button class="confirm-btn">确定</button>
+    </div>
+  </div>
+  <script src="time-picker.js"></script>
+</body>
+</html> 

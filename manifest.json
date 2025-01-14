@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "简单待办事项",
+  "version": "1.0",
+  "description": "一个简单的待办事项清单扩展",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "permissions": ["storage", "commands", "windows", "sidePanel", "notifications", "alarms", "tabs", "background", "offscreen", "identity"],
+  "oauth2": {
+    "client_id": "实际的Client ID",
+    "scopes": ["gist", "read:user"],
+    "redirect_url": "https://{extension-id}.chromiumapp.org/"
+  },
+  "host_permissions": [
+    "<all_urls>",
+    "https://api.github.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module",
+    "persistent": true
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["float-button.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+T",
+        "mac": "Command+Shift+K"
+      },
+      "description": "打开待办事项列表"
+    }
+  },
+  "web_accessible_resources": [{
+    "resources": ["time-picker.html", "settings.html"],
+    "matches": ["<all_urls>"]
+  }]
+} 
