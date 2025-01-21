@@ -197,16 +197,36 @@ button:hover {
 }
 
 .reminder-btn,
-.delete-btn {
+.delete-btn,
+.complete-btn {
   padding: 6px;
   background: transparent;
   border-radius: 6px;
   width: 28px;
   height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.complete-btn {
+  color: #40c057;
+  border: 1px solid transparent;
+}
+
+.complete-btn svg {
+  stroke: #40c057;
+  width: 16px;
+  height: 16px;
+}
+
+.complete-btn:hover {
+  background-color: rgba(64, 192, 87, 0.1);
+  border-color: rgba(64, 192, 87, 0.2);
 }
 
 .reminder-btn {
-  color: #4dabf7;
+  color: #20c997;
 }
 
 .reminder-btn:hover {
@@ -487,4 +507,121 @@ button:hover {
 
 .data-viewer-btn svg {
   stroke: #4dabf7;
+}
+
+/* 添加提醒高亮样式 */
+.date-list li.reminded {
+  animation: reminderPulse 2s infinite;
+  border-color: #ffd43b;
+  background-color: #fff9db;
+}
+
+@keyframes reminderPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 212, 59, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(255, 212, 59, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 212, 59, 0);
+  }
+}
+
+/* 修改提醒状态下的文字和图标颜色 */
+.date-list li.reminded .todo-text {
+  color: #e67700;
+  font-weight: 600;
+}
+
+.date-list li.reminded .reminder-info {
+  background-color: #fff3bf;
+  color: #e67700;
+}
+
+.date-list li.reminded .reminder-info svg {
+  stroke: #e67700;
+}
+
+.date-list li.reminded .reminder-info span {
+  color: #e67700;
+}
+
+.todo-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+
+.todo-button:hover {
+  background-color: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.todo-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.todo-button span {
+  font-size: 14px;
+}
+
+.reminded {
+  background-color: #fff3cd;
+  border-left: 3px solid #ffc107;
+}
+
+.complete-btn {
+  background-color: #4CAF50;
+  border: none;
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+
+.complete-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: white;
+}
+
+.complete-btn:hover {
+  background-color: #45a049;
+}
+
+.reminder-info.reminded {
+  color: #856404;
+}
+
+.todo-item.reminded {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+  }
 } 

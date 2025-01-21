@@ -7,7 +7,7 @@
     "default_popup": "popup.html",
     "default_icon": "icon.png"
   },
-  "permissions": ["storage", "commands", "windows", "sidePanel", "notifications", "alarms", "tabs", "background", "offscreen", "identity"],
+  "permissions": ["storage", "commands", "windows", "sidePanel", "notifications", "alarms", "tabs", "background", "offscreen", "identity", "scripting"],
   "oauth2": {
     "client_id": "你的Client ID",
     "scopes": ["gist", "read:user"]
@@ -29,7 +29,8 @@
     {
       "matches": ["<all_urls>"],
       "js": ["float-button.js"],
-      "run_at": "document_end"
+      "css": ["float-button.css"],
+      "run_at": "document_idle"
     }
   ],
   "commands": {
@@ -42,7 +43,7 @@
     }
   },
   "web_accessible_resources": [{
-    "resources": ["time-picker.html", "settings.html", "data-viewer.html"],
+    "resources": ["time-picker.html", "settings.html", "data-viewer.html", "popup.html"],
     "matches": ["<all_urls>"]
   }]
 } 

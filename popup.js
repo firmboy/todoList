@@ -5,6 +5,58 @@ window.onerror = function(message, source, lineno, colno, error) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  // 检查当前是否在弹出窗口中
+  const isPopup = location.pathname.endsWith('popup.html');
+  
+  if (!isPopup) {
+    // 只在非弹出窗口中创建待办按钮
+    const todoButton = document.createElement('button');
+    todoButton.id = 'todoButton';
+    todoButton.className = 'todo-button';
+    todoButton.innerHTML = `
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+      </svg>
+      <span>待办事项</span>
+    `;
+
+    // 将按钮添加到页面中
+    document.body.appendChild(todoButton);
+
+    // 添加点击事件监听器
+    todoButton.addEventListener('click', () => {
+      chrome.windows.create({
+        url: 'popup.html',
+        type: 'popup',
+        width: 400,
+        height: 600
+      });
+    });
+  } else {
+    // 弹出窗口中的原有代码
+    console.log('DOM Content Loaded');
+    const todoInput = document.getElementById('todoInput');
+    const addTodoBtn = document.getElementById('addTodo');
+    const todoList = document.getElementById('todoList');
+
+    // 加载保存的待办事项
+    loadTodos();
+
+    // 添加新待办事项
+    addTodoBtn.addEventListener('click', () => {
+      console.log('Add button clicked');
+      addTodoFromInput();
+    });
+
+    // 回车添加待办事项
+    todoInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        console.log('Enter key pressed');
+        addTodoFromInput();
+      }
+    });
+  }
+
   console.log('DOM Content Loaded');
   const todoInput = document.getElementById('todoInput');
   const addTodoBtn = document.getElementById('addTodo');
@@ -223,6 +275,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function createTodoElement(todo) {
     const li = document.createElement('li');
     
+    // 如果待办事项已提醒但未完成，添加提醒样式
+    if (todo.reminded && !todo.completed) {
+      li.className = 'reminded';
+    }
+    
     // 创建主要内容区域
     const mainContent = document.createElement('div');
     mainContent.className = 'todo-main-content';
@@ -240,6 +297,45 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const todoButtons = document.createElement('div');
     todoButtons.className = 'todo-buttons';
+    
+    // 如果待办事项已提醒但未完成，添加完成按钮
+    if (todo.reminded && !todo.completed) {
+      const completeBtn = document.createElement('button');
+      completeBtn.className = 'complete-btn';
+      completeBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      `;
+      
+      completeBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          const { todos } = await chrome.storage.local.get(['todos']);
+          const updatedTodos = todos.map(t => {
+            if (t.id === todo.id) {
+              return { 
+                ...t, 
+                reminded: false,
+                completed: true
+              };
+            }
+            return t;
+          });
+          
+          await chrome.storage.local.set({ todos: updatedTodos });
+          // 通知更新
+          chrome.runtime.sendMessage({
+            type: 'todosUpdated',
+            todos: updatedTodos
+          });
+        } catch (error) {
+          console.error('Failed to complete todo:', error);
+        }
+      });
+      
+      todoButtons.insertBefore(completeBtn, todoButtons.firstChild);
+    }
     
     // 添加提醒按钮
     const reminderBtn = document.createElement('button');
@@ -267,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
     todoHeader.appendChild(todoButtons);
     mainContent.appendChild(todoHeader);
     
-    // 如果有提醒时间，显示提醒信息
+    // 修改提醒信息的显示逻辑
     if (todo.reminder) {
       const reminderInfo = document.createElement('div');
       reminderInfo.className = 'reminder-info';
@@ -282,12 +378,22 @@ document.addEventListener('DOMContentLoaded', () => {
         hour12: true
       });
       
+      // 添加提醒状态显示
+      const reminderStatus = todo.reminded ? '(已提醒)' : '';
+      
       reminderInfo.innerHTML = `
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
         </svg>
-        <span>${formattedTime}</span>
+        <span>${formattedTime} ${reminderStatus}</span>
       `;
+      
+      // 如果已提醒但未完成，添加特殊样式
+      if (todo.reminded && !todo.completed) {
+        reminderInfo.classList.add('reminded');
+        li.classList.add('reminded');
+      }
+      
       mainContent.appendChild(reminderInfo);
     }
     
@@ -304,13 +410,40 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
     
-    deleteBtn.addEventListener('click', () => {
-      chrome.storage.local.get(['todos'], (result) => {
-        const todos = result.todos.filter(t => t.id !== todo.id);
-        chrome.storage.local.set({ todos }, () => {
-          loadTodos();
+    deleteBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      // 禁用删除按钮防止重复点击
+      deleteBtn.disabled = true;
+      
+      try {
+        // 获取当前待办事项列表
+        const { todos } = await chrome.storage.local.get(['todos']);
+        
+        // 过滤掉要删除的待办事项
+        const updatedTodos = todos.filter(t => t.id !== todo.id);
+        
+        // 保存更新后的待办事项列表
+        await chrome.storage.local.set({ todos: updatedTodos });
+        
+        // 通知其他组件更新
+        chrome.runtime.sendMessage({
+          type: 'todosUpdated',
+          todos: updatedTodos
         });
-      });
+        
+        // 如果存在提醒，取消提醒
+        if (todo.reminder) {
+          chrome.alarms.clear(`todo-${todo.id}`);
+        }
+        
+        console.log('Todo deleted successfully');
+      } catch (error) {
+        console.error('Failed to delete todo:', error);
+        // 删除失败时重新启用按钮
+        deleteBtn.disabled = false;
+      }
     });
     
     return li;
@@ -499,10 +632,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 添加消息监听
+  // 确保只有一个 todosUpdated 消息监听器
+  const messageListeners = chrome.runtime.onMessage.getListeners();
+  messageListeners.forEach(listener => {
+    chrome.runtime.onMessage.removeListener(listener);
+  });
+
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'todosUpdated') {
+      console.log('Received todos update:', message.todos);
       renderTodosByDate(message.todos);
+    }
+  });
+
+  // 添加消息监听器
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.action === 'closeSidePanelFromButton') {
+      // 查找并点击关闭按钮
+      const closeButton = document.querySelector('button[aria-label="关闭侧边栏"]');
+      if (closeButton) {
+        closeButton.click();
+      }
     }
   });
 }); 

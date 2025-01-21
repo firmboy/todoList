@@ -1,168 +1,167 @@
-// 创建悬浮按钮
-function createFloatButton() {
-  const button = document.createElement('div');
-  button.innerHTML = `
-    <div id="todo-float-button" style="
-      position: fixed;
-      right: 0;
-      top: 40%;
-      width: 24px;
-      height: 80px;
-      background-color: white;
-      border: 1px solid #e0e0e0;
-      border-right: none;
-      border-radius: 4px 0 0 4px;
-      box-shadow: -2px 0 8px rgba(0,0,0,0.05);
-      cursor: pointer;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
-      padding: 8px 4px;
-    ">
-      <div style="
-        writing-mode: vertical-rl;
-        color: #666;
-        font-size: 12px;
-        font-family: system-ui, -apple-system, sans-serif;
-        letter-spacing: 1px;
-        user-select: none;
-      ">待办事项</div>
-      <div style="
-        position: absolute;
-        right: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 2px;
-        height: 16px;
-        background-color: #4dabf7;
-        border-radius: 1px;
-      "></div>
-    </div>
+// 确保按钮只被创建一次
+let todoButton = null;
+
+// 在文件顶部添加状态跟踪
+let isPanelOpen = false;
+
+function createButton() {
+  if (todoButton) return;
+  
+  todoButton = document.createElement('button');
+  todoButton.id = 'todoButton';
+  todoButton.className = 'todo-button';
+  todoButton.innerHTML = `
+    <span>待办事项</span>
   `;
 
-  // 添加悬停效果
-  const floatButton = button.firstElementChild;
-  floatButton.addEventListener('mouseover', () => {
-    floatButton.style.backgroundColor = '#f8f9fa';
+  // 使用 shadow DOM 来隔离样式
+  const host = document.createElement('div');
+  host.id = 'todo-button-host';
+  const shadow = host.attachShadow({ mode: 'open' });
+  
+  // 添加样式
+  const style = document.createElement('style');
+  style.textContent = `
+    .todo-button {
+      position: fixed;
+      top: 50%;
+      right: 0;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      padding: 10px 6px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px 0 0 6px;
+      cursor: pointer;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+      z-index: 2147483647;
+      font-family: system-ui, -apple-system, sans-serif;
+      writing-mode: vertical-rl;
+      letter-spacing: 1px;
+    }
+
+    .todo-button.has-reminder {
+      background-color: #ff9800;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: -2px 0 0 0 rgba(255, 152, 0, 0.4);
+      }
+      70% {
+        box-shadow: -2px 0 0 10px rgba(255, 152, 0, 0);
+      }
+      100% {
+        box-shadow: -2px 0 0 0 rgba(255, 152, 0, 0);
+      }
+    }
+
+    .todo-button:hover {
+      background-color: #45a049;
+      padding-right: 10px;
+      box-shadow: -3px 0 8px rgba(0,0,0,0.2);
+    }
+
+    .todo-button span {
+      font-size: 13px;
+    }
+  `;
+
+  shadow.appendChild(style);
+  shadow.appendChild(todoButton);
+  document.body.appendChild(host);
+
+  todoButton.addEventListener('click', () => {
+    // 切换面板状态
+    isPanelOpen = !isPanelOpen;
+    
+    // 根据状态发送不同的消息
+    chrome.runtime.sendMessage({ 
+      action: isPanelOpen ? 'openSidePanel' : 'closeSidePanel' 
+    });
   });
 
-  floatButton.addEventListener('mouseout', () => {
-    floatButton.style.backgroundColor = 'white';
-  });
+  // 创建按钮后立即检查提醒状态
+  updateButtonReminderState();
+}
 
-  // 点击事件
-  floatButton.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'openTodoPanel' });
-  });
-
-  // 添加拖拽功能（仅限垂直方向）
-  let isDragging = false;
-  let initialY;
-  let initialTop;
-
-  floatButton.addEventListener('mousedown', (e) => {
-    if (e.button === 0) { // 只响应左键
-      isDragging = true;
-      initialY = e.clientY;
-      initialTop = floatButton.offsetTop;
-      floatButton.style.transition = 'none';
-      e.preventDefault(); // 防止文本选择
+// 使用 MutationObserver 确保按钮始终存在
+function ensureButtonExists() {
+  const observer = new MutationObserver((mutations) => {
+    const host = document.getElementById('todo-button-host');
+    if (!host) {
+      createButton();
     }
   });
 
-  document.addEventListener('mousemove', (e) => {
-    if (isDragging) {
-      e.preventDefault();
-      const deltaY = e.clientY - initialY;
-      let newTop = initialTop + deltaY;
-
-      // 确保按钮不会超出屏幕边界
-      const maxY = window.innerHeight - floatButton.offsetHeight - 20; // 留出底部边距
-      newTop = Math.max(20, Math.min(newTop, maxY)); // 留出顶部边距
-
-      floatButton.style.top = newTop + 'px';
-    }
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
   });
 
-  document.addEventListener('mouseup', () => {
-    if (isDragging) {
-      isDragging = false;
-      floatButton.style.transition = 'all 0.2s ease';
-      saveButtonPosition();
-    }
-  });
+  // 初始创建按钮
+  createButton();
+}
 
-  // 监听窗口大小变化
-  window.addEventListener('resize', () => {
-    const maxY = window.innerHeight - floatButton.offsetHeight - 20;
-    const currentTop = parseInt(floatButton.style.top);
-    if (currentTop > maxY) {
-      floatButton.style.top = maxY + 'px';
-      saveButtonPosition();
-    }
-  });
+// 当 DOM 加载完成后初始化
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', ensureButtonExists);
+} else {
+  ensureButtonExists();
+}
 
-  document.body.appendChild(button);
-
-  // 保存按钮位置
-  function saveButtonPosition() {
-    const position = floatButton.style.top;
-    localStorage.setItem('todoButtonPosition', position);
+// 处理从 background script 发来的消息
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.action === 'shakeButton' && todoButton) {
+    // 添加提醒样式
+    todoButton.classList.add('has-reminder');
+    
+    // 修改点击事件处理
+    const checkAndClearReminder = () => {
+      // 检查所有待办事项的提醒状态
+      chrome.storage.local.get(['todos'], (result) => {
+        const todos = result.todos || [];
+        const hasReminders = todos.some(todo => todo.reminded && !todo.completed);
+        
+        // 只有当没有提醒中的待办事项时，才移除提醒样式
+        if (!hasReminders) {
+          todoButton.classList.remove('has-reminder');
+          todoButton.removeEventListener('click', checkAndClearReminder);
+        }
+      });
+    };
+    
+    todoButton.addEventListener('click', checkAndClearReminder);
   }
-
-  // 恢复按钮位置
-  const savedPosition = localStorage.getItem('todoButtonPosition');
-  if (savedPosition) {
-    floatButton.style.top = savedPosition;
-  }
-}
-
-// 检查页面上是否已经存在悬浮按钮
-if (!document.getElementById('todo-float-button')) {
-  createFloatButton();
-}
-
-// 添加抖动动画
-function addShakeAnimation(element) {
-  // 移除可能存在的动画
-  element.style.animation = 'none';
-  element.offsetHeight; // 触发重排
-  element.style.animation = 'shake 0.5s ease-in-out';
-
-  // 动画结束后清除
-  element.addEventListener('animationend', () => {
-    element.style.animation = '';
-  }, { once: true });
-
-  console.log('Adding shake animation');
-}
-
-// 监听消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Received message:', request);
-  if (request.action === 'shakeButton') {
-    const button = document.getElementById('todo-float-button');
-    if (button) {
-      addShakeAnimation(button);
-      console.log('Shake animation added to button');
-    } else {
-      console.log('Button not found');
-    }
-    // 立即发送响应
-    sendResponse({ success: true });
+  
+  if (message.action === 'sidePanelStateChanged') {
+    isPanelOpen = message.isOpen;
   }
 });
 
-// 添加抖动动画的 CSS
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-8px); }
-    75% { transform: translateX(8px); }
+// 添加一个函数来检查并更新按钮状态
+function updateButtonReminderState() {
+  if (!todoButton) return;
+  
+  chrome.storage.local.get(['todos'], (result) => {
+    const todos = result.todos || [];
+    const hasReminders = todos.some(todo => todo.reminded && !todo.completed);
+    
+    if (hasReminders) {
+      todoButton.classList.add('has-reminder');
+    } else {
+      todoButton.classList.remove('has-reminder');
+    }
+  });
+}
+
+// 监听存储变化以更新按钮状态
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.todos) {
+    updateButtonReminderState();
   }
-`;
-document.head.appendChild(style); 
+}); 
